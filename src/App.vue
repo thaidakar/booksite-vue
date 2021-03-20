@@ -20,7 +20,7 @@
     <router-view/>
     <div class="footer">
       <a class="link" href="http://spatutastic.com">spatutastic.com</a> |
-      <a class="link" href="">Github</a>
+      <a class="link" href="https://github.com/thaidakar/booksite-vue/tree/master">Github</a>
     </div>
   </div>
 </template>
