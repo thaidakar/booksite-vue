@@ -3,7 +3,7 @@
     <div class="post board" v-if="this.$root.$data.currentBookId != 0">
         <h1>Discussion Board for {{this.$root.$data.currentName}}</h1>
         <div class="masonry ye">
-            <div class="individual-post masonry-item" v-for="post in getPosts()" :key="post.content">
+            <div class="individual-post masonry-item" v-for="post in posts" :key="post.content">
                 <p class="poster">{{post.poster}}:</p>
                 <p contenteditable="true" class="post-stuff">"{{post.content}}"</p>
                 <p style="margin-top: 50px">Top Response</p>
@@ -53,17 +53,26 @@
 </style>
 
 <script>
+import axios from 'axios';
 export default {
     name: 'Discussion',
     data() {
         return {
             currentPage: 0,
             currentUsername: '',
+            posts: []
         }
     },
+    created() {
+        this.getPosts();
+    },
     methods: {
-        editPost(post) {
+        async editPost(post) {
             if (document.getElementById("myEditedTextArea").value !== "") {
+                await axios.put('/api/posts', {
+                    oldPost: post,
+                    newContent: document.getElementById("myEditedTextArea").value
+                });
                 post.content = document.getElementById("myEditedTextArea").value;
                 document.getElementById("myEditedTextArea").value = "";
             }
@@ -74,10 +83,14 @@ export default {
                 post.shouldEdit = true;
             } else post.shouldEdit = false
         },
-        remove(post) {
-            for (let i = 0; i < this.$root.$data.postData.length; i++) {
-                if (this.$root.$data.postData[i] === post) {
-                    this.$root.$data.postData.splice(i,1);
+        async remove(post) {
+            for (let i = 0; i < this.posts.length; i++) {
+                if (this.posts[i] === post) {
+                    console.log(post);
+                    await axios.delete('/api/posts', {
+                        post: post
+                    });
+                    this.posts.splice(i,1);
                     return
                 }
             }
@@ -93,26 +106,30 @@ export default {
             this.$root.$data.currentName = this.$root.$data.bookInfo[this.currentPage - 1].name;
             this.$root.$data.currentBookId = this.currentPage;
         },
-        getPosts() {
+        async getPosts() {
             if (this.$root.$data.currentName !== '') {
                 this.currentPage = this.$root.$data.currentBookId;
                 this.currentUsername = this.$root.$data.user.username;
             }
-            return this.checkForPosts()    
+            await this.checkForPosts()    
         },
-        checkForPosts() {
-            if (this.$root.$data.postData.length > 0) {
-                let toFill = new Array;
-                for (let i = 0; i < this.$root.$data.postData.length; i++) {
-                    if (this.$root.$data.postData[i].bookId === this.currentPage) {
-                        toFill.push(this.$root.$data.postData[i]);
-                    }
+        async checkForPosts() {
+            let posts = await axios.get("/api/posts/" + this.$root.$data.currentBookId);
+            let toReturn = [];
+            for (let i = 0; i < posts.data.length; i++) {
+                let newPost = {
+                    bookId: posts.data[i].bookID,
+                    content: posts.data[i].content,
+                    poster: posts.data[i].username,
+                    comments: posts.data[i].comments,
+                    shouldEdit: posts.data[i].shouldEdit
                 }
-                return toFill;
+                toReturn.push(newPost);
             }
-            return null;
+            console.log(posts);
+            this.posts = toReturn;
         },
-        createPost() {
+        async createPost() {
             let postie = document.getElementById("myTextArea").value;
             if (this.$root.$data.user.username === "") {
                 this.currentUsername = document.getElementById("myTextUsername").value;
@@ -125,14 +142,18 @@ export default {
                     bookId: this.currentPage,
                     content: postie,
                     poster: this.currentUsername,
-                    comments: ["Jerry: 'wow that's such a good comment!'", "Bernie: 'You're so smart!'", "Johnny: 'I love the way you write'", "Bertha: 'YES!'", "HOOOLIGAN6969: 'hehe'"],
+                    comments: ["Johnny: Wow, I sure with that vue would let me put a loop inside of a loop to add comments!", "Pheobe: Same Johnny, I spent hours trying to find a way around it but I never could", "Mark: This sure is neat how the posts are saved on the individual books and across page refreshes!", "John: I completely agree Mark, and dont forget the fact that you can sign in and have your favorites rememebered!", "Password: Hopefully nobody noticed that you can have the same username as someone else if you just use a different password..."],
                     shouldEdit: false
                 };
+                await axios.post("/api/posts", {
+                    post: post
+                });
                 this.$root.$data.postData.push(post);
                 document.getElementById("myTextArea").value = "";
                 if (this.$root.$data.user.username === '') {
                     document.getElementById("myTextUsername").value = "";
                 }
+                this.posts.push(post);
                 return;
             }
             alert("Please fill out all fields");

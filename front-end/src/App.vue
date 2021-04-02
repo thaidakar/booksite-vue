@@ -69,10 +69,17 @@ export default {
   methods: {
     async signIn() {
       if (this.username !== '' && this.password !== '') {
-        this.$root.$data.user.username = this.username;
         try {
-          let user = await axios.put("/api/login/" + this.username);
-          console.log(user);
+          let user = await axios.post("/api/login/" + this.username, {
+            password: this.password
+          });
+          this.$root.$data.user.username = user.data.username;
+          let favs = await axios.get("/api/" + user.data._id);
+          let favorites = [];
+          for (let i = 0; i < favs.data.length; i++) {
+            favorites.push(favs.data[i].favorite)
+          }
+          this.$root.$data.user.favorites = favorites;
         } catch (error) {
           console.log(error);
         }
@@ -82,6 +89,7 @@ export default {
     },
     signOut() {
       this.$root.$data.user.username = '';
+      this.$root.$data.user.favorites = [];
     }
   },
 }

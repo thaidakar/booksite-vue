@@ -98,6 +98,7 @@
 </style>
 
 <script>
+import axios from 'axios';
 import Favorites from '../components/Favorites'
 export default {
   name: 'Main',
@@ -105,13 +106,20 @@ export default {
     Favorites
   },
   methods: {
-    addToFav() {
+    async addToFav() {
       for (let i = 0; i < this.$root.$data.user.favorites.length; i++) {
           if (this.$root.$data.bookInfo[this.$root.$data.currentBookId - 1] === this.$root.$data.user.favorites[i]){
             return;
           }
       }
       this.$root.$data.user.favorites.push(this.$root.$data.bookInfo[this.$root.$data.currentBookId - 1])
+      try {
+        await axios.post("/api/" + this.$root.$data.user.username + "/favorite", {
+          favorite: this.$root.$data.bookInfo[this.$root.$data.currentBookId - 1]
+        })
+      } catch (error) {
+        console.log(error);
+      }
     },
     previousBook() {
       if (this.$root.$data.currentBookId === 0 || this.$root.$data.currentBookId === 1) {
