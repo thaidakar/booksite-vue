@@ -61,6 +61,7 @@
 
 .welcome {
   padding: 30px;
+  margin: 70px 0 !important;
   margin-bottom: 100px !important;
 }
 

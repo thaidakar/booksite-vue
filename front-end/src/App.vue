@@ -8,13 +8,19 @@
       </div>
       <div v-else class="login">
         <form v-on:submit.prevent="">
-          <label for="Username">Username:</label>
+          <label for="Username">Username :</label>
           <input id="uz" type="text" v-model="username" required>
           <br>
-          <label for="Password">Password:</label>
+          <label for="Password">Password :</label>
           <input id="pd" type="text" v-model="password" required>
+          <br>
+          <label for="firstName">First Name:</label>
+          <input type="text" v-model="firstName" required>
+          <br>
+          <label for="lastName">Last Name:</label>
+          <input type="text" v-model="lastName" required>
         </form>
-        <button @click="signIn()">Sign In</button>
+        <p><button @click="signIn()">Sign In</button> or <button @click="register()">Register</button></p>
       </div>
     </div> 
     <router-view/>
@@ -63,33 +69,89 @@ export default {
   data() {
     return {
       username: '',
-      password: ''
+      password: '',
+      firstName: '',
+      lastName: '',
+    }
+  },
+  async created() {
+    try {
+      let user = await axios.get('/api/get');
+      this.$root.$data.user.username = user.data.username;
+      this.$root.$data.user.firstName = user.data.firstName;
+      this.$root.$data.user.lastName = user.data.lastName;
+      let favs = await axios.get("/api/" + user.data._id);
+      let favorites = [];
+      for (let i = 0; i < favs.data.length; i++) {
+        favorites.push(favs.data[i].favorite)
+      }
+      this.$root.$data.user.favorites = favorites; 
+    } catch(error) {
+      console.log(error);
     }
   },
   methods: {
+    async register() {
+      if (this.username !== '' && this.password !== '' && this.firstName !== '' && this.lastName !== '') {
+        try {
+          let user = await axios.post('/api/register', {
+            username: this.username,
+            password: this.password,
+            firstName: this.firstName,
+            lastName: this.lastName,
+          });
+          this.$root.$data.user.username = user.data.username;
+          this.$root.$data.user.firstName = user.data.firstName;
+          this.$root.$data.user.lastName = user.data.lastName;
+        } catch (error) {
+          alert(error.response.data.message);
+          this.$root.$data.user.username = '';
+          this.$root.$data.user.firstName = '';
+          this.$root.$data.user.lastName = '';
+        }
+      }
+      this.username = '';
+      this.password = '';
+      this.firstName = '';
+      this.lastName = '';
+    },
     async signIn() {
       if (this.username !== '' && this.password !== '') {
         try {
-          let user = await axios.post("/api/login/" + this.username, {
+          let user = await axios.post('/api/login', {
+            username: this.username,
             password: this.password
           });
           this.$root.$data.user.username = user.data.username;
+          this.$root.$data.user.firstName = user.data.firstName;
+          this.$root.$data.user.lastName = user.data.lastName;
           let favs = await axios.get("/api/" + user.data._id);
           let favorites = [];
           for (let i = 0; i < favs.data.length; i++) {
             favorites.push(favs.data[i].favorite)
           }
-          this.$root.$data.user.favorites = favorites;
+          this.$root.$data.user.favorites = favorites;  
         } catch (error) {
-          console.log(error);
+          alert(error.response.data.message);
+          this.$root.$data.user.username = '';
+          this.$root.$data.user.favorites = [];
+          this.$root.$data.user.firstName = '';
+          this.$root.$data.user.lastName = '';
         }
         this.username = '';
         this.password = '';
+        this.firstName = '';
+        this.lastName = '';
       } 
     },
-    signOut() {
+    async signOut() {
       this.$root.$data.user.username = '';
       this.$root.$data.user.favorites = [];
+      try {
+        await axios.delete('/api/get');
+      } catch (error) {
+        console.log(error);
+      }
     }
   },
 }

@@ -18,13 +18,15 @@ let data = {
     currentViews: '',
     user: {
         favorites: [],
-        username: ''
+        username: '',
+        firstName: '',
+        lastName: '',
     },
     postData: []
 }
 
 new Vue({
-    router,
     data,
+    router,
     render: h => h(App)
 }).$mount('#app')

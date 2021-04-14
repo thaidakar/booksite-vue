@@ -17,15 +17,18 @@
             </div>
         </div>
         <div class="new">
+            <div v-if="this.$root.$data.user.username != ''">
             <h3>Create New Discussion</h3>
             <form v-on:submit.prevent="createPost">
-                <label v-if="this.$root.$data.user.username === ''">Username: </label>
-                <input style="background-color: #d5a47e94" v-if="this.$root.$data.user.username === ''" type="text" class="username" id="myTextUsername">
                 <div class="container">
                     <textarea class="post-content" type="text" id="myTextArea"></textarea>
                 </div>
                 <button class="link bonk boop" type="submit">Submit</button>
-        </form>
+            </form>
+            </div>
+            <div v-else>
+                <h3>Please Sign in to contribute to the discussion board!</h3>
+            </div>
         </div>
     </div>
     <div class="post board" v-else>
@@ -38,7 +41,7 @@
 <style>
 .board {
     padding: 10px;
-    margin-top: 30px;
+    margin-top: 70px !important;
     margin-bottom: 50px;
 }
 .boop {
@@ -68,6 +71,10 @@ export default {
     },
     methods: {
         async editPost(post) {
+            if (post.poster !== this.$root.$data.user.username) {
+                alert("Only the user that posted this can edit or remove this post")
+                return;
+            }
             if (document.getElementById("myEditedTextArea").value !== "") {
                 await axios.put('/api/posts', {
                     oldPost: post,
@@ -84,6 +91,10 @@ export default {
             } else post.shouldEdit = false
         },
         async remove(post) {
+            if (post.poster !== this.$root.$data.user.username) {
+                alert("Only the user that posted this can edit or remove this post")
+                return;
+            }
             for (let i = 0; i < this.posts.length; i++) {
                 if (this.posts[i] === post) {
                     console.log(post);
@@ -126,7 +137,6 @@ export default {
                 }
                 toReturn.push(newPost);
             }
-            console.log(posts);
             this.posts = toReturn;
         },
         async createPost() {

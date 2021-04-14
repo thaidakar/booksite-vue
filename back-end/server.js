@@ -1,44 +1,172 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
+const argon2 = require("argon2");
 
 const app = express();
 
+app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
     extended: false
 }));
 
-app.use(bodyParser.json());
-
 mongoose.connect('mongodb://localhost:27017/booksite', {
+    useUnifiedTopology: true,
     useNewUrlParser: true,
-    useUnifiedTopology: true
 });
+
+const cookieParser = require('cookie-parser');
+app.use(cookieParser());
+
+const cookieSession = require('cookie-session');
+app.use(cookieSession({
+    name: 'session',
+    keys: ['secret'],
+    cookie: {
+        maxAge: 24 * 60 * 60 * 1000
+    }
+}));
 
 const userSchema = new mongoose.Schema({
     username: String,
-    password: String
+    password: String,
+    firstName: String,
+    lastName: String,
 });
+
+userSchema.pre('save', async function(next) {
+    if (!this.isModified('password')) {
+        return next();
+
+    }
+    try {
+        const hash = await argon2.hash(this.password);
+        this.password = hash;
+        next();
+    } catch (error) {
+        console.log(error);
+        next(error);
+    }
+});
+
+userSchema.methods.comparePassword = async function(password) {
+    try {
+        const match = await argon2.verify(this.password, password);
+        return match;
+    } catch (error) {
+        return false;
+    }
+}
+
+userSchema.methods.toJSON = function() {
+    var obj = this.toObject();
+    delete obj.password;
+    return obj;
+}
 
 const User = mongoose.model('User', userSchema);
 
-app.post('/api/login/:username', async(req, res) => {
+const validUser = async(req, res, next) => {
+    if (!req.session.userID)
+        return res.status(403).send({
+            message: "no signed in user"
+        });
     try {
-        let user = await User.findOne({ username: req.params.username, password: req.body.password });
+        const user = await User.findOne({
+            _id: req.session.userID
+        });
         if (!user) {
-            user = new User({
-                username: req.params.username,
-                password: req.body.password
+            return res.status(403).send({
+                message: "no signed in user"
             });
-            await user.save();
-            res.send(user);
-            return;
         }
-        res.send(user);
+        req.user = user;
+    } catch (error) {
+        return res.status(403).send({
+            message: "no signed in user"
+        });
+    }
+    next();
+}
+
+app.post('/api/register', async(req, res) => {
+    try {
+        if (!req.body.username || !req.body.password || !req.body.firstName || !req.body.lastName) {
+            return res.status(400).send({
+                message: "Please fill in all fields"
+            });
+        }
+        const user = await User.findOne({
+            username: req.body.username
+        });
+        if (user) {
+            return res.status(403).send({
+                message: "Username is already in use, please try again"
+            });
+        }
+        const newUser = new User({
+            username: req.body.username,
+            password: req.body.password,
+            firstName: req.body.firstName,
+            lastName: req.body.lastName,
+        });
+        await newUser.save();
+        req.session.userID = newUser._id;
+        return res.send(newUser);
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500);
+    }
+});
+
+app.post('/api/login', async(req, res) => {
+    try {
+        if (!req.body.username) {
+            return res.status(400).send({
+                message: "Please provide a username"
+            });
+        }
+        if (!req.body.password) {
+            return res.status(400).send({
+                message: "Please provide a password"
+            });
+        }
+        let user = await User.findOne({ username: req.body.username });
+        if (!user) {
+            return res.status(400).send({
+                message: "Invalid Username / Password combo"
+            });
+        } else {
+            if (!await user.comparePassword(req.body.password))
+                return res.status(403).send({
+                    message: "Invalid Username / Password combo"
+                });
+            req.session.userID = user._id;
+            res.send(user);
+        }
     } catch (error) {
         res.sendStatus(500);
     }
 });
+
+app.get('/api/get', validUser, async(req, res) => {
+    try {
+        res.send(req.user);
+    } catch (error) {
+        console.log(error);
+        return res.sendStatus(500);
+    }
+});
+
+app.delete('/api/get', validUser, async(req, res) => {
+    try {
+        req.session = null;
+        res.sendStatus(200);
+    } catch (error) {
+        console.log(error);
+        return res.sendStatus(500);
+    }
+})
 
 const favoriteSchema = new mongoose.Schema({
     user: {
@@ -72,7 +200,7 @@ app.get('/api/:userID', async(req, res) => {
     }
 });
 
-app.post('/api/:username/favorite', async(req, res) => {
+app.post('/api/:username/favorite', validUser, async(req, res) => {
     try {
         let user = await User.findOne({ username: req.params.username });
         if (!user) {
@@ -90,7 +218,7 @@ app.post('/api/:username/favorite', async(req, res) => {
     }
 });
 
-app.delete('/api/:username/favorite', async(req, res) => {
+app.delete('/api/:username/favorite', validUser, async(req, res) => {
     try {
         let user = await User.findOne({ username: req.params.username });
         if (!user) {
@@ -146,7 +274,7 @@ app.get('/api/posts/:bookID', async(req, res) => {
     }
 });
 
-app.post('/api/posts', async(req, res) => {
+app.post('/api/posts', validUser, async(req, res) => {
     try {
         let postee = req.body.post;
         let post = new Post({
@@ -163,7 +291,7 @@ app.post('/api/posts', async(req, res) => {
     }
 });
 
-app.put('/api/posts', async(req, res) => {
+app.put('/api/posts', validUser, async(req, res) => {
     try {
         let post = await Post.findOne({ username: req.body.oldPost.poster, content: req.body.oldPost.content });
         if (!post) {
@@ -178,7 +306,7 @@ app.put('/api/posts', async(req, res) => {
     }
 });
 
-app.delete('/api/posts', async(req, res) => {
+app.delete('/api/posts', validUser, async(req, res) => {
     try {
         await Post.deleteOne({ post: req.body.post });
         res.sendStatus(200);

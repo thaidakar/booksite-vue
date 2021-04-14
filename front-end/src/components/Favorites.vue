@@ -1,7 +1,7 @@
 <template>
 <div class="favorites">
     <h1>Favorite Books</h1>
-    <p v-if="this.$root.$data.user.username === ''">Please sign in to view your favorite books <em>(Until I build authentication you can just put anything for your username and password, but the information you add to favorites is stored to that username and password)</em></p>
+    <p v-if="this.$root.$data.user.username === ''">Please sign in to view or add to your favorite books</p>
     <p v-if="this.$root.$data.user.favorites.length === 0 && this.$root.$data.user.username !== ''">Currently no favorites, please select from the list to add some!</p>
     <div class="masonry" v-else>
         <div class="post item masonry-item" v-for="favorite in this.$root.$data.user.favorites" :key="favorite.name">
