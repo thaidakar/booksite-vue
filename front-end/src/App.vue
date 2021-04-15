@@ -109,6 +109,8 @@ export default {
           this.$root.$data.user.firstName = '';
           this.$root.$data.user.lastName = '';
         }
+      } else {
+        alert("Please fill out all the fields!");
       }
       this.username = '';
       this.password = '';
